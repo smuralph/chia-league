@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chia League</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>🏈 Chia League</h1>
+    <nav>
+      <a href="index.html" class="active">Standings</a>
+      <a href="teams.html">Teams</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Standings</h2>
+      <div class="table-wrap">
+        <table id="standings-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th>Owner</th>
+              <th>W</th>
+              <th>L</th>
+              <th>T</th>
+              <th>PF</th>
+              <th>PA</th>
+            </tr>
+          </thead>
+          <tbody id="standings-body">
+            <tr><td colspan="8">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Chia League &middot; <span id="updated"></span></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
