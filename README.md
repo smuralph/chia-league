@@ -1,17 +1,22 @@
 # Chia League
 
-Fantasy football league site: standings and team info.
+Fantasy football league hub: historical data, standings, dashboards, and stats for a 15+ year Yahoo Fantasy league.
 
-## Local preview
+## Stack
 
-Open `index.html` directly in a browser, or serve the folder with any static server.
+- [Next.js](https://nextjs.org) (TypeScript, App Router) + Tailwind CSS
+- Hosted on [Vercel](https://vercel.com), deployed automatically from this repo
+- Data source: Yahoo Fantasy Sports API (planned)
 
-## Updating data
+## Local development
 
-Edit `data.json` — add/update teams, records, and points. The site reads this file directly, no build step required.
+```bash
+npm install
+npm run dev
+```
 
-## Deploying to GitHub Pages
+Visit http://localhost:3000
 
-1. Push this repo to GitHub.
-2. In the repo settings, go to **Pages** and set the source to the `main` branch, root folder.
-3. The site will be published at `https://<username>.github.io/<repo-name>/`.
+## Deploying
+
+Pushes to `master` auto-deploy via Vercel once the project is connected.
