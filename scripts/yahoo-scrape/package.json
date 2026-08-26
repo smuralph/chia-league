@@ -1,0 +1,14 @@
+{
+  "name": "yahoo-scrape",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "login": "node login.mjs",
+    "smoke-test": "node scrape.mjs --smoke-test",
+    "scrape": "node scrape.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

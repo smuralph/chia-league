@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# yahoo scraper: session credentials, scraped data, and node_modules
+# (root /node_modules rule above doesn't reach this nested folder)
+scripts/yahoo-scrape/node_modules
+scripts/yahoo-scrape/storageState.json
+scripts/yahoo-scrape/config.csv
+scripts/yahoo-scrape/output/
+scripts/yahoo-scrape/failures.log
+scripts/yahoo-scrape/smoke-output.txt
+
+.vercel
+.env*
+
+# auto-installed agent-skill reference docs (Neon integration), local tooling only
+.agents/
+.claude/
+skills-lock.json
