@@ -17,6 +17,7 @@
   --primary: #2a78d6;
   --accent: #eb6834;
   --success: #006300;
+  --critical: #d03b3b; /* status palette - fixed, never themed */
 
   /* Categorical series (fixed order, never cycled/reassigned) */
   --series-1: #2a78d6;
@@ -52,6 +53,7 @@
     --primary: #3987e5;
     --accent: #d95926;
     --success: #0ca30c;
+    --critical: #d03b3b; /* status palette - fixed, never themed */
 
     --series-1: #3987e5;
     --series-2: #d95926;

@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSeasonSummary, getSeasonStandings, getSeasonWeeklyScores, getSeasonWeeklyMatchups } from "@/lib/queries";
+import {
+  getSeasonSummary,
+  getSeasonStandings,
+  getSeasonWeeklyScores,
+  getSeasonWeeklyMatchups,
+  getSeasonWeeklyProjections,
+} from "@/lib/queries";
 import { buildSeasonStory } from "@/lib/seasonStory";
 import { WeeklyScoresChart } from "@/components/WeeklyScoresChart";
 import { LeagueStory } from "@/components/LeagueStory";
@@ -10,11 +16,12 @@ export default async function SeasonPage({ params }: PageProps<"/seasons/[year]"
   const season = Number(year);
   if (!Number.isInteger(season)) notFound();
 
-  const [summary, standings, weeklyScores, weeklyMatchups] = await Promise.all([
+  const [summary, standings, weeklyScores, weeklyMatchups, weeklyProjections] = await Promise.all([
     getSeasonSummary(season),
     getSeasonStandings(season),
     getSeasonWeeklyScores(season),
     getSeasonWeeklyMatchups(season),
+    getSeasonWeeklyProjections(season),
   ]);
 
   if (standings.length === 0) notFound();
@@ -101,7 +108,7 @@ export default async function SeasonPage({ params }: PageProps<"/seasons/[year]"
         </table>
       </section>
 
-      <WeeklyScoresChart data={weeklyScores} />
+      <WeeklyScoresChart scores={weeklyScores} projections={weeklyProjections} />
     </main>
   );
 }

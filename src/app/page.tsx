@@ -1,31 +1,24 @@
-import { getLeagueKpis, getManagerLeaderboard, getPointsOverTime } from "@/lib/queries";
+import { getLeagueKpis, getManagerLeaderboard, getPointsOverTime, getSeasonHighs, getTeamNameCloud } from "@/lib/queries";
 import { KpiCard } from "@/components/KpiCard";
 import { ManagerLeaderboardTable } from "@/components/ManagerLeaderboardTable";
 import { PointsOverTimeChart } from "@/components/PointsOverTimeChart";
+import { TeamNameCloud } from "@/components/TeamNameCloud";
 
 export default async function Home() {
-  const [kpis, leaderboard, pointsOverTime] = await Promise.all([
+  const [kpis, leaderboard, pointsOverTime, seasonHighs, teamNames] = await Promise.all([
     getLeagueKpis(),
     getManagerLeaderboard(),
     getPointsOverTime(),
+    getSeasonHighs(),
+    getTeamNameCloud(),
   ]);
 
   return (
     <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-10 flex flex-col gap-8">
-      <section className="text-center py-6">
-        <h1 className="text-3xl font-bold" style={{ color: "var(--foreground)" }}>
-          🏈 Chia League
-        </h1>
-        <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
-          The League at a Glance &middot; 2014–2025
-        </p>
-      </section>
+      <TeamNameCloud names={teamNames} title="Chia's Battle for the Sword" subtitle="League at a Glance · 2018 – 2026" />
 
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <KpiCard label="Seasons" value={String(kpis.seasons)} />
-        <KpiCard label="Managers" value={String(kpis.managers)} />
         <KpiCard label="Team-Games Played" value={kpis.teamGamesPlayed.toLocaleString()} />
-        <KpiCard label="Championships" value={String(kpis.championships)} />
         <KpiCard
           label="Best Single-Season Win %"
           value={kpis.highestSingleSeasonWinPct ? `${(kpis.highestSingleSeasonWinPct.pct * 100).toFixed(1)}%` : "—"}
@@ -50,9 +43,24 @@ export default async function Home() {
           value={kpis.mostPlayoffAppearances ? String(kpis.mostPlayoffAppearances.count) : "—"}
           sub={kpis.mostPlayoffAppearances?.owner}
         />
+        <KpiCard
+          label="Most Championships"
+          value={kpis.mostChampionships ? String(kpis.mostChampionships.count) : "—"}
+          sub={kpis.mostChampionships?.owner}
+        />
+        <KpiCard
+          label="Highest Win Streak"
+          value={kpis.longestWinStreak ? `${kpis.longestWinStreak.length} games` : "—"}
+          sub={kpis.longestWinStreak ? `${kpis.longestWinStreak.owner}, ${kpis.longestWinStreak.season}` : undefined}
+        />
+        <KpiCard
+          label="Highest Losing Streak"
+          value={kpis.longestLossStreak ? `${kpis.longestLossStreak.length} games` : "—"}
+          sub={kpis.longestLossStreak ? `${kpis.longestLossStreak.owner}, ${kpis.longestLossStreak.season}` : undefined}
+        />
       </section>
 
-      <PointsOverTimeChart data={pointsOverTime} />
+      <PointsOverTimeChart avgData={pointsOverTime} highsData={seasonHighs} />
 
       <ManagerLeaderboardTable rows={leaderboard} />
     </main>
