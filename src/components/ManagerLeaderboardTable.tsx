@@ -3,12 +3,13 @@
 import { useState } from "react";
 import type { ManagerLeaderboardRow } from "@/lib/queries";
 
-type SortKey = "winPct" | "wins" | "championships" | "totalPoints" | "playoffAppearances";
+type SortKey = "winPct" | "wins" | "championships" | "podiums" | "totalPoints" | "playoffAppearances";
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "wins", label: "Wins" },
   { key: "winPct", label: "Win %" },
   { key: "championships", label: "Titles" },
+  { key: "podiums", label: "Podiums" },
   { key: "playoffAppearances", label: "Playoffs" },
   { key: "totalPoints", label: "Points" },
 ];
@@ -21,7 +22,7 @@ export function ManagerLeaderboardTable({ rows }: { rows: ManagerLeaderboardRow[
   return (
     <div style={{ background: "var(--surface)" }} className="rounded-lg border p-4 overflow-x-auto">
       <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--foreground)" }}>
-        All-Time Manager Rankings
+        Manager Rankings · 2018 – 2025
       </h3>
       <table className="w-full text-sm" style={{ fontVariantNumeric: "tabular-nums" }}>
         <thead>
@@ -66,6 +67,9 @@ export function ManagerLeaderboardTable({ rows }: { rows: ManagerLeaderboardRow[
               </td>
               <td className="py-2 pr-3" style={{ color: "var(--text-secondary)" }}>
                 {r.championships}
+              </td>
+              <td className="py-2 pr-3" style={{ color: "var(--text-secondary)" }}>
+                {r.podiums}
               </td>
               <td className="py-2 pr-3" style={{ color: "var(--text-secondary)" }}>
                 {r.playoffAppearances}

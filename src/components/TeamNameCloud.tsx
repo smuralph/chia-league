@@ -16,10 +16,14 @@ export function TeamNameCloud({
   names,
   title,
   subtitle,
+  sizeScale = 1,
+  maxHeight,
 }: {
   names: TeamNameCloudEntry[];
   title: string;
   subtitle: string;
+  sizeScale?: number;
+  maxHeight?: number;
 }) {
   const maxUsed = Math.max(...names.map((n) => n.seasonsUsed), 1);
   const minUsed = Math.min(...names.map((n) => n.seasonsUsed), 1);
@@ -28,13 +32,18 @@ export function TeamNameCloud({
   return (
     <div
       className="relative rounded-lg border overflow-hidden"
-      style={{ background: "var(--surface)", borderColor: "var(--border)", minHeight: 280 }}
+      style={{
+        background: "var(--surface)",
+        borderColor: "var(--border)",
+        minHeight: 280,
+        ...(maxHeight ? { maxHeight } : {}),
+      }}
     >
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 p-10">
         {names.map((entry) => {
           const h = hashString(entry.name);
           const sizeT = (entry.seasonsUsed - minUsed) / range;
-          const fontSize = MIN_SIZE + sizeT * (MAX_SIZE - MIN_SIZE);
+          const fontSize = (MIN_SIZE + sizeT * (MAX_SIZE - MIN_SIZE)) * sizeScale;
           const rotation = (h % 13) - 6; // -6deg .. +6deg
           const opacity = 0.35 + sizeT * 0.5;
           return (

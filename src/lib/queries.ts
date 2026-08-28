@@ -147,6 +147,7 @@ export type ManagerLeaderboardRow = {
   ties: number;
   winPct: number;
   championships: number;
+  podiums: number;
   playoffAppearances: number;
   totalPoints: number;
   seasons: number;
@@ -162,6 +163,7 @@ export async function getManagerLeaderboard(): Promise<ManagerLeaderboardRow[]> 
       SUM(tbs.ties) AS ties,
       ROUND(SUM(tbs.wins)::numeric / NULLIF(SUM(tbs.wins + tbs.losses + tbs.ties), 0), 4) AS win_pct,
       SUM(CASE WHEN tbs.champion THEN 1 ELSE 0 END) AS championships,
+      SUM(CASE WHEN tbs.podium THEN 1 ELSE 0 END) AS podiums,
       SUM(CASE WHEN tbs.made_playoffs THEN 1 ELSE 0 END) AS playoff_appearances,
       SUM(tbs.points_for) AS total_points,
       COUNT(*) AS seasons
@@ -179,6 +181,7 @@ export async function getManagerLeaderboard(): Promise<ManagerLeaderboardRow[]> 
     ties: Number(r.ties),
     winPct: Number(r.win_pct),
     championships: Number(r.championships),
+    podiums: Number(r.podiums),
     playoffAppearances: Number(r.playoff_appearances),
     totalPoints: Number(r.total_points),
     seasons: Number(r.seasons),
@@ -797,4 +800,145 @@ export async function getRivalries(): Promise<Rivalry[]> {
   }
 
   return rivalries.sort((a, b) => a.owner.localeCompare(b.owner));
+}
+
+export type PlayerNetworkOwner = { id: number; name: string };
+export type PlayerSeasonPoints = { season: number; owner: string; teamName: string; points: number };
+export type PlayerNetworkPlayer = {
+  name: string;
+  pos: string;
+  totalPoints: number;
+  ownerIds: number[];
+  seasonBreakdown: PlayerSeasonPoints[];
+};
+export type PlayerNetwork = { owners: PlayerNetworkOwner[]; players: PlayerNetworkPlayer[] };
+
+// Node set: skill-position/QB/K players (DEF excluded - defenses get streamed
+// weekly and would just be waiver-wire noise) who sat on SOME roster for 10+
+// weeks in a season, in at least 4 different seasons - this is what keeps the
+// graph to ~190 meaningful players instead of the ~970 who ever touched a
+// roster at all. Edges use the same >=10-weeks-in-a-season bar per owner, so
+// a one-week waiver pickup doesn't draw a connection. `pos` in this table is
+// the LINEUP SLOT for that week (a benched player shows 'BN', a flexed one
+// 'W/R/T'), not a fixed real position, so a player's displayed position is
+// whichever real position code (excluding those two slot values) shows up
+// most often across their rows.
+export async function getPlayerNetwork(): Promise<PlayerNetwork> {
+  const [ownersRes, playersRes, edgesRes, seasonBreakdownRes] = await Promise.all([
+    pool.query(`SELECT id, name FROM owners ORDER BY name`),
+    pool.query(`
+      WITH real_pos AS (
+        SELECT player_name, pos,
+          ROW_NUMBER() OVER (PARTITION BY player_name ORDER BY COUNT(*) DESC) AS rnk
+        FROM player_weekly_stats
+        WHERE position_group != 'Defense/Special Teams' AND pos NOT IN ('BN', 'W/R/T')
+        GROUP BY player_name, pos
+      ),
+      season_presence AS (
+        SELECT season, player_name, COUNT(DISTINCT week) AS weeks_rostered
+        FROM player_weekly_stats
+        WHERE position_group != 'Defense/Special Teams'
+        GROUP BY season, player_name
+      ),
+      qualifying AS (
+        SELECT player_name FROM season_presence WHERE weeks_rostered >= 10
+        GROUP BY player_name HAVING COUNT(*) >= 4
+      ),
+      points AS (
+        SELECT player_name, SUM(fan_pts) AS total_points
+        FROM player_weekly_stats
+        WHERE season BETWEEN 2018 AND 2025
+        GROUP BY player_name
+      )
+      SELECT q.player_name, rp.pos, COALESCE(p.total_points, 0) AS total_points
+      FROM qualifying q
+      LEFT JOIN real_pos rp ON rp.player_name = q.player_name AND rp.rnk = 1
+      LEFT JOIN points p ON p.player_name = q.player_name
+    `),
+    pool.query(`
+      WITH season_presence AS (
+        SELECT season, player_name, COUNT(DISTINCT week) AS weeks_rostered
+        FROM player_weekly_stats
+        WHERE position_group != 'Defense/Special Teams'
+        GROUP BY season, player_name
+      ),
+      qualifying AS (
+        SELECT player_name FROM season_presence WHERE weeks_rostered >= 10
+        GROUP BY player_name HAVING COUNT(*) >= 4
+      ),
+      owner_season_presence AS (
+        SELECT season, owner_id, player_name, COUNT(DISTINCT week) AS weeks_rostered
+        FROM player_weekly_stats
+        WHERE position_group != 'Defense/Special Teams'
+        GROUP BY season, owner_id, player_name
+      )
+      SELECT DISTINCT owner_id, player_name
+      FROM owner_season_presence
+      WHERE weeks_rostered >= 10 AND player_name IN (SELECT player_name FROM qualifying)
+    `),
+    // Per-season point total behind the node's "total points, 2018-2025"
+    // figure - grouped by (season, owner) rather than just season, so a
+    // mid-season trade shows as two separate rows instead of merging into
+    // one owner's line.
+    pool.query(`
+      WITH season_presence AS (
+        SELECT season, player_name, COUNT(DISTINCT week) AS weeks_rostered
+        FROM player_weekly_stats
+        WHERE position_group != 'Defense/Special Teams'
+        GROUP BY season, player_name
+      ),
+      qualifying AS (
+        SELECT player_name FROM season_presence WHERE weeks_rostered >= 10
+        GROUP BY player_name HAVING COUNT(*) >= 4
+      )
+      SELECT pws.player_name, pws.season, o.name AS owner, tbs.team_name, SUM(pws.fan_pts) AS points
+      FROM player_weekly_stats pws
+      JOIN owners o ON o.id = pws.owner_id
+      LEFT JOIN teams_by_season tbs ON tbs.season = pws.season AND tbs.owner_id = pws.owner_id
+      WHERE pws.season BETWEEN 2018 AND 2025 AND pws.player_name IN (SELECT player_name FROM qualifying)
+      GROUP BY pws.player_name, pws.season, o.name, tbs.team_name
+      ORDER BY pws.player_name, pws.season, o.name
+    `),
+  ]);
+
+  const ownerIdsByPlayer = new Map<string, number[]>();
+  for (const r of edgesRes.rows) {
+    const name = r.player_name as string;
+    if (!ownerIdsByPlayer.has(name)) ownerIdsByPlayer.set(name, []);
+    ownerIdsByPlayer.get(name)!.push(Number(r.owner_id));
+  }
+
+  const seasonBreakdownByPlayer = new Map<string, PlayerSeasonPoints[]>();
+  for (const r of seasonBreakdownRes.rows) {
+    const name = r.player_name as string;
+    if (!seasonBreakdownByPlayer.has(name)) seasonBreakdownByPlayer.set(name, []);
+    seasonBreakdownByPlayer.get(name)!.push({
+      season: Number(r.season),
+      owner: r.owner,
+      teamName: r.team_name ?? "—",
+      points: Number(r.points),
+    });
+  }
+
+  // A player can clear the qualifying bar (10+ weeks rostered in a season,
+  // 4+ such seasons) via weeks split across MULTIPLE owners in the same
+  // season, without any single owner individually reaching 10 - that leaves
+  // zero edges for them here (edges require one owner to hit the bar alone).
+  // A node with no edges has nothing pulling it toward the graph, so it gets
+  // flung out by the force simulation's repulsion instead of just rendering
+  // as an isolated dot - drop them rather than show a broken node.
+  const players: PlayerNetworkPlayer[] = playersRes.rows
+    .map((r: Record<string, any>) => ({
+      name: r.player_name,
+      pos: r.pos ?? "—",
+      totalPoints: Number(r.total_points),
+      ownerIds: ownerIdsByPlayer.get(r.player_name) ?? [],
+      seasonBreakdown: seasonBreakdownByPlayer.get(r.player_name) ?? [],
+    }))
+    .filter((p) => p.ownerIds.length > 0);
+
+  return {
+    owners: ownersRes.rows.map((r: Record<string, any>) => ({ id: Number(r.id), name: r.name })),
+    players,
+  };
 }

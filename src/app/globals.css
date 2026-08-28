@@ -12,6 +12,8 @@
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
   --border: rgba(11, 11, 11, 0.1);
+  --surface-translucent: rgba(252, 252, 251, 0.7); /* surface w/ opacity - lets content show through (e.g. graph tooltips) */
+  --surface-translucent-65: rgba(252, 252, 251, 0.65); /* surface at 65% - e.g. the Ask chat card floating over the word cloud */
 
   /* Brand: primary (blue) / accent (orange), neutrals as complementary */
   --primary: #2a78d6;
@@ -49,6 +51,8 @@
     --gridline: #2c2c2a;
     --baseline: #383835;
     --border: rgba(255, 255, 255, 0.1);
+    --surface-translucent: rgba(26, 26, 25, 0.7); /* surface w/ opacity - lets content show through (e.g. graph tooltips) */
+    --surface-translucent-65: rgba(26, 26, 25, 0.65); /* surface at 65% - e.g. the Ask chat card floating over the word cloud */
 
     --primary: #3987e5;
     --accent: #d95926;

@@ -1,16 +1,25 @@
-import { getLeagueKpis, getManagerLeaderboard, getPointsOverTime, getSeasonHighs, getTeamNameCloud } from "@/lib/queries";
+import {
+  getLeagueKpis,
+  getManagerLeaderboard,
+  getPointsOverTime,
+  getSeasonHighs,
+  getTeamNameCloud,
+  getPlayerNetwork,
+} from "@/lib/queries";
 import { KpiCard } from "@/components/KpiCard";
 import { ManagerLeaderboardTable } from "@/components/ManagerLeaderboardTable";
 import { PointsOverTimeChart } from "@/components/PointsOverTimeChart";
 import { TeamNameCloud } from "@/components/TeamNameCloud";
+import { PlayerNetworkGraph } from "@/components/PlayerNetworkGraph";
 
 export default async function Home() {
-  const [kpis, leaderboard, pointsOverTime, seasonHighs, teamNames] = await Promise.all([
+  const [kpis, leaderboard, pointsOverTime, seasonHighs, teamNames, playerNetwork] = await Promise.all([
     getLeagueKpis(),
     getManagerLeaderboard(),
     getPointsOverTime(),
     getSeasonHighs(),
     getTeamNameCloud(),
+    getPlayerNetwork(),
   ]);
 
   return (
@@ -63,6 +72,8 @@ export default async function Home() {
       <PointsOverTimeChart avgData={pointsOverTime} highsData={seasonHighs} />
 
       <ManagerLeaderboardTable rows={leaderboard} />
+
+      <PlayerNetworkGraph network={playerNetwork} />
     </main>
   );
 }
