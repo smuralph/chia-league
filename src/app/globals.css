@@ -75,3 +75,130 @@ body {
   color: var(--foreground);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
+.about-page {
+  position: relative;
+  background: #0d0d0d;
+}
+
+.about-scene {
+  position: relative;
+  width: min(100%, 1400px);
+  min-height: 420px;
+  background: rgba(8, 8, 8, 0.82);
+  box-shadow: none;
+  border: none;
+  overflow: hidden;
+}
+
+.about-scene::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 11, 11, 0.08) 0%,
+    rgba(11, 11, 11, 0.26) 32%,
+    rgba(11, 11, 11, 0.56) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.about-scene__backdrop {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 380px;
+  z-index: 0;
+  background-color: #0d0d0d;
+  background-image:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.18) 34%, rgba(0, 0, 0, 0.45)),
+    url('/mesoamerican2.png');
+  background-size: cover;
+  background-position: center;
+  filter: grayscale(1) contrast(1.4) brightness(1.05);
+  opacity: 1;
+}
+
+.about-page__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding-top: 2rem;
+  padding-bottom: 0;
+}
+
+.about-hero-visual {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 4rem;
+  padding-bottom: 0;
+}
+
+.about-portrait-wrap {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  padding: 0.45rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+.about-portrait {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  filter: grayscale(0.7) contrast(1.45) brightness(1.02) saturate(1.1) sepia(0.54) hue-rotate(-8deg);
+}
+
+.about-card {
+  position: relative;
+  z-index: 1;
+  margin-top: 5.5rem;
+  padding: 1.25rem 1.5rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(12, 12, 12, 0.05);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+  border-radius: 1.25rem;
+  color: rgba(255, 255, 255, 0.82);
+  overflow: hidden;
+}
+
+.about-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.02) 0%,
+    rgba(0, 0, 0, 0.08) 24%,
+    rgba(0, 0, 0, 0.12) 100%
+  );
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.about-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.about-card p {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+@media (max-width: 640px) {
+  .about-card {
+    padding: 1.1rem 1rem 1rem;
+  }
+}

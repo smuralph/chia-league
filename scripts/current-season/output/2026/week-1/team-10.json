@@ -1,0 +1,66 @@
+{
+  "season": 2026,
+  "week": 1,
+  "leagueId": "793823",
+  "teamId": "10",
+  "owner": "Chris Devlin",
+  "teamName": "Yahoo Sports",
+  "teamNameHistory": [
+    {
+      "season": 2026,
+      "week": 1,
+      "teamName": "Yahoo Sports",
+      "owner": "Chris Devlin",
+      "observedAt": "2026-08-29T16:33:41.698Z"
+    }
+  ],
+  "url": "https://football.fantasysports.yahoo.com/f1/793823/10/team?&week=1",
+  "scrapedAt": "2026-08-29T16:33:41.698Z",
+  "status": "waiting_for_weekly_stats",
+  "summary": {
+    "title": "Chia's Battle For The Sword - Moron Dogs | Fantasy Football | Yahoo! Sports",
+    "detectedTeamName": "Yahoo Sports",
+    "detectedScore": null,
+    "ownerMatched": false,
+    "teamNameMatched": true,
+    "hasNoPlayerStats": true,
+    "pageState": "waiting_for_weekly_stats"
+  },
+  "roster": [],
+  "players": [
+    "Today's news",
+    "US",
+    "Politics",
+    "World",
+    "Weather",
+    "Tech",
+    "Science",
+    "Originals",
+    "Newsletters",
+    "Games",
+    "Health Wellness Nutrition Fitness Healthy aging Sleep Best mattresses Your body Children's health Dermatology Foot health Hair loss Oral health Sexual health Weight management Women's health Conditions Cardiovascular health Digestive health Endocrine system Hearing Mental health Health guides",
+    "Wellness Nutrition Fitness Healthy aging Sleep Best mattresses",
+    "Nutrition",
+    "Fitness",
+    "Healthy aging",
+    "Sleep",
+    "Best mattresses",
+    "Your body Children's health Dermatology Foot health Hair loss Oral health Sexual health Weight management Women's health",
+    "Children's health",
+    "Dermatology",
+    "Foot health",
+    "Hair loss"
+  ],
+  "rawHtmlSnippet": "Yahoo Sports\nYahoo Sports\nSearch query\nNews\nFinance\nSports\nMore\n99+\n Fantasy Football\nOverview\nLeague\nMy Team\nMatchups\nPlayers\nResearch\nDraft\nStatTracker\n…\nFantasy\nNetwork\nFantasy Plus\nChia's Battle For The Sword (ID# 793823)\nYahoo Sports Fantasy Football\nMoron Dogs\nChris (Since '03)Silver 686Report Team Logo\n0-0-0\n(4th Place)\nWeek 1 vs Carroz Con Pollo\n \n0.00\n0.00\n\tvs\t\n0.00\n0.00\n \n \nYour team will include the following roster positions:\nQB\n\t\nRB\n\t\nWR\n\t\nTE\n\t\nW-R-T\n\t\nK\n\t\nDEF\n\t\nBN\n\t\nIR\n\n\n1\n\t\n2\n\t\n2\n\t\n1\n\t\n1\n\t\n1\n\t\n1\n\t\n5\n\t\n1\nLegends and Glossaries\nLegend\n\nStats\n\nPositions\n\nAdvanced Stats Glossary\n\n \nThe Fine Print\nProjections Powered by Rotowire. Week 1 stats may change if Stat corrections are applied by Thursday, Sep 17. All game times are shown in CDT.\n\t\nYahoo Sports - NBC Sports Network - Paid Fantasy Terms - Feedback - Terms and Privacy Policy - Your Privacy Choices  - About Our Ads - Help\n\nCertain Data by Sportradar, Rotowire, FTN, BAKER Engine and THE BLITZ\n\nGuillotine trademarks are used with Fantasy Life's permission.\n\n© 2026 Yahoo Fantasy Sports LLC. All rights reserved.",
+  "validation": {
+    "expectedOwner": "Chris Devlin",
+    "ownerVerified": false,
+    "expectedTeamName": "TBD - verify against live Yahoo team page",
+    "teamNameVerified": true,
+    "warnings": [
+      "Owner mismatch check failed for Chris Devlin. Confirm the live Yahoo team page before writing normalized rows."
+    ],
+    "waitingForWeeklyStats": true,
+    "waitMessage": "Yahoo has not populated weekly roster or player stats for this team yet; retry later when the season data is live."
+  }
+}

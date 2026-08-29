@@ -1,0 +1,22 @@
+{
+  "season": 2026,
+  "leagueId": "YOUR_LEAGUE_ID",
+  "currentWeek": 1,
+  "teams": [
+    {
+      "teamId": "1",
+      "teamName": "Team One",
+      "owner": "Owner One"
+    },
+    {
+      "teamId": "2",
+      "teamName": "Team Two",
+      "owner": "Owner Two"
+    }
+  ],
+  "run": {
+    "mode": "weekly",
+    "scheduleMinutes": 1440,
+    "retryAttempts": 3
+  }
+}

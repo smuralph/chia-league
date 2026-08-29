@@ -1,0 +1,94 @@
+{
+  "leagueName": "Chia League",
+  "season": 2026,
+  "leagueId": "793823",
+  "currentWeek": 1,
+  "teams": [
+    {
+      "draftOrder": 1,
+      "teamId": "5",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Albert Martinez"
+    },
+    {
+      "draftOrder": 2,
+      "teamId": "2",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Robert Tinajero"
+    },
+    {
+      "draftOrder": 3,
+      "teamId": "10",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Chris Devlin"
+    },
+    {
+      "draftOrder": 4,
+      "teamId": "12",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Chris Varughese"
+    },
+    {
+      "draftOrder": 5,
+      "teamId": "11",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Rafael Guevara"
+    },
+    {
+      "draftOrder": 6,
+      "teamId": "6",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Roger Torres"
+    },
+    {
+      "draftOrder": 7,
+      "teamId": "1",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Rito Guia"
+    },
+    {
+      "draftOrder": 8,
+      "teamId": "9",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Dario Lopez"
+    },
+    {
+      "draftOrder": 9,
+      "teamId": "3",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Misael Rubio"
+    },
+    {
+      "draftOrder": 10,
+      "teamId": "4",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Marco DeLeon"
+    },
+    {
+      "draftOrder": 11,
+      "teamId": "7",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Ernie Meza"
+    },
+    {
+      "draftOrder": 12,
+      "teamId": "8",
+      "teamName": "TBD - verify against live Yahoo team page",
+      "owner": "Daniel Murray"
+    }
+  ],
+  "yahoo": {
+    "storageStatePath": "./scripts/yahoo-scrape/storageState.json",
+    "headless": true,
+    "timeoutMs": 60000
+  },
+  "db": {
+    "connectionString": "postgresql://user:password@host:5432/chia_league",
+    "schema": "public"
+  },
+  "run": {
+    "mode": "weekly",
+    "scheduleMinutes": 1440,
+    "retryAttempts": 3
+  }
+}
