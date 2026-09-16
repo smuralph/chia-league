@@ -15,15 +15,37 @@ function readTeamPayload(season, week, teamId) {
 }
 
 function normalizeTeamWeek(payload) {
-  // TODO: map scraped team payload into the app schema.
-  // The shape should eventually align with the existing database tables:
-  // - owners
-  // - teams_by_season
-  // - weekly_matchups
-  // - player_weekly_stats
-  //
-  // Important: owners are the stable identity. Team names can and do change,
-  // so we log team names by week while preserving the owner record as the key.
+  const toNumber = (value) => {
+    if (value === undefined || value === null || value === "" || value === "-") return null;
+    const number = Number(value);
+    return Number.isNaN(number) ? null : number;
+  };
+
+  const playerStats = (payload.roster || []).flatMap((table) => table.rows.map((row) => {
+    const position = row.Pos || null;
+    const playerName = row[table.sectionLabel] || null;
+    const fanPointsValue = row["Fantasy - Fan Pts"] ?? row["Fan Pts"];
+    const projectedPointsValue = row["Fantasy - Proj Pts"] ?? row["Proj Pts"];
+    const stats = { ...row };
+    delete stats.Pos;
+    delete stats.Bye;
+    delete stats["Fantasy - Fan Pts"];
+    delete stats["Fantasy - Proj Pts"];
+    delete stats["Fan Pts"];
+    delete stats["Proj Pts"];
+    delete stats[table.sectionLabel];
+
+    return {
+      positionGroup: table.sectionLabel,
+      position,
+      playerName,
+      isBench: position === "BN",
+      bye: toNumber(row.Bye),
+      fanPoints: toNumber(fanPointsValue),
+      projectedPoints: toNumber(projectedPointsValue),
+      stats,
+    };
+  }));
 
   return {
     season: payload.season,
@@ -40,9 +62,11 @@ function normalizeTeamWeek(payload) {
       },
     ],
     ownerVerified: payload.validation?.ownerVerified ?? false,
-    matchup: null,
-    roster: [],
-    playerStats: [],
+    matchup: {
+      pointsScored: toNumber(payload.summary?.detectedScore),
+    },
+    roster: payload.roster || [],
+    playerStats,
   };
 }
 

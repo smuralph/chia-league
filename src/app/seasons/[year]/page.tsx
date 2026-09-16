@@ -6,22 +6,25 @@ import {
   getSeasonWeeklyScores,
   getSeasonWeeklyMatchups,
   getSeasonWeeklyProjections,
+  getCurrentSeasonPreviewData,
 } from "@/lib/queries";
 import { buildSeasonStory } from "@/lib/seasonStory";
 import { WeeklyScoresChart } from "@/components/WeeklyScoresChart";
 import { LeagueStory } from "@/components/LeagueStory";
+import { CurrentSeasonPreviewCharts } from "@/components/CurrentSeasonPreviewCharts";
 
 export default async function SeasonPage({ params }: PageProps<"/seasons/[year]">) {
   const { year } = await params;
   const season = Number(year);
   if (!Number.isInteger(season)) notFound();
 
-  const [summary, standings, weeklyScores, weeklyMatchups, weeklyProjections] = await Promise.all([
+  const [summary, standings, weeklyScores, weeklyMatchups, weeklyProjections, currentSeasonCharts] = await Promise.all([
     getSeasonSummary(season),
     getSeasonStandings(season),
     getSeasonWeeklyScores(season),
     getSeasonWeeklyMatchups(season),
     getSeasonWeeklyProjections(season),
+    season === 2026 ? getCurrentSeasonPreviewData(season) : Promise.resolve(null),
   ]);
 
   if (standings.length === 0) notFound();
@@ -109,6 +112,14 @@ export default async function SeasonPage({ params }: PageProps<"/seasons/[year]"
       </section>
 
       <WeeklyScoresChart scores={weeklyScores} projections={weeklyProjections} />
+      {season === 2026 && currentSeasonCharts && (
+        <>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            The visuals below have been added to the current season only.
+          </p>
+          <CurrentSeasonPreviewCharts {...currentSeasonCharts} />
+        </>
+      )}
     </main>
   );
 }

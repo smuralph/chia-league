@@ -280,11 +280,12 @@ export type SeasonListItem = { season: number; champion: string | null };
 
 export async function getSeasonsList(): Promise<SeasonListItem[]> {
   const res = await pool.query(`
-    SELECT tbs.season, o.name AS champion
-    FROM teams_by_season tbs
-    JOIN owners o ON o.id = tbs.owner_id
-    WHERE tbs.champion = true
-    ORDER BY tbs.season DESC
+    SELECT seasons.season, champion.name AS champion
+    FROM (SELECT DISTINCT season FROM teams_by_season) seasons
+    LEFT JOIN teams_by_season champion_row
+      ON champion_row.season = seasons.season AND champion_row.champion = true
+    LEFT JOIN owners champion ON champion.id = champion_row.owner_id
+    ORDER BY seasons.season DESC
   `);
   return res.rows.map((r: Record<string, any>) => ({ season: Number(r.season), champion: r.champion }));
 }
@@ -297,26 +298,18 @@ export type SeasonSummary = {
 };
 
 export async function getSeasonSummary(season: number): Promise<SeasonSummary> {
-  const res = await pool.query(
-    `
-    SELECT o.name AS owner, tbs.final_rank, tbs.wins, tbs.losses, tbs.ties, tbs.points_for, tbs.champion
-    FROM teams_by_season tbs JOIN owners o ON o.id = tbs.owner_id
-    WHERE tbs.season = $1
-  `,
-    [season]
-  );
-  const rows: Record<string, any>[] = res.rows;
-  const champion = rows.find((r) => r.champion)?.owner ?? null;
-  const runnerUp = rows.find((r) => Number(r.final_rank) === 2)?.owner ?? null;
-  const highest = [...rows].sort((a, b) => Number(b.points_for) - Number(a.points_for))[0];
-  const bestRecordRow = [...rows].sort((a, b) => Number(b.wins) - Number(a.wins))[0];
+  const rows = await getSeasonStandings(season);
+  const champion = rows.find((row) => row.champion)?.owner ?? null;
+  const runnerUp = rows.find((row) => row.finalRank === 2)?.owner ?? null;
+  const highest = [...rows].sort((a, b) => b.pointsFor - a.pointsFor)[0];
+  const bestRecordRow = [...rows].sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor)[0];
 
   return {
     champion,
     runnerUp,
-    highestScoringTeam: highest ? { owner: highest.owner, points: Number(highest.points_for) } : null,
+    highestScoringTeam: highest ? { owner: highest.owner, points: highest.pointsFor } : null,
     bestRecord: bestRecordRow
-      ? { owner: bestRecordRow.owner, wins: Number(bestRecordRow.wins), losses: Number(bestRecordRow.losses), ties: Number(bestRecordRow.ties) }
+      ? { owner: bestRecordRow.owner, wins: bestRecordRow.wins, losses: bestRecordRow.losses, ties: bestRecordRow.ties }
       : null,
   };
 }
@@ -337,11 +330,36 @@ export type SeasonStandingsRow = {
 export async function getSeasonStandings(season: number): Promise<SeasonStandingsRow[]> {
   const res = await pool.query(
     `
-    SELECT tbs.final_rank, tbs.team_name, o.name AS owner, tbs.wins, tbs.losses, tbs.ties,
-      tbs.points_for, tbs.points_against, tbs.made_playoffs, tbs.champion
-    FROM teams_by_season tbs JOIN owners o ON o.id = tbs.owner_id
-    WHERE tbs.season = $1
-    ORDER BY tbs.final_rank
+    WITH weekly AS (
+      SELECT season, owner_id,
+        COUNT(*) AS games,
+        SUM(CASE WHEN points_scored > opponent_points THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN points_scored < opponent_points THEN 1 ELSE 0 END) AS losses,
+        SUM(CASE WHEN points_scored = opponent_points THEN 1 ELSE 0 END) AS ties,
+        SUM(points_scored) AS points_for,
+        SUM(opponent_points) AS points_against
+      FROM weekly_matchups
+      WHERE season = $1
+      GROUP BY season, owner_id
+    ), calculated AS (
+      SELECT tbs.team_name, o.name AS owner, tbs.made_playoffs, tbs.champion,
+        CASE WHEN weekly.games > 0 THEN weekly.wins ELSE tbs.wins END AS wins,
+        CASE WHEN weekly.games > 0 THEN weekly.losses ELSE tbs.losses END AS losses,
+        CASE WHEN weekly.games > 0 THEN weekly.ties ELSE tbs.ties END AS ties,
+        CASE WHEN weekly.games > 0 THEN weekly.points_for ELSE tbs.points_for END AS points_for,
+        CASE WHEN weekly.games > 0 THEN weekly.points_against ELSE tbs.points_against END AS points_against,
+        tbs.final_rank
+      FROM teams_by_season tbs
+      JOIN owners o ON o.id = tbs.owner_id
+      LEFT JOIN weekly ON weekly.season = tbs.season AND weekly.owner_id = tbs.owner_id
+      WHERE tbs.season = $1
+    )
+    SELECT CASE WHEN final_rank IS NULL OR wins > 0 OR losses > 0 OR ties > 0
+      THEN RANK() OVER (ORDER BY wins DESC, points_for DESC)
+      ELSE final_rank END AS final_rank,
+      team_name, owner, wins, losses, ties, points_for, points_against, made_playoffs, champion
+    FROM calculated
+    ORDER BY final_rank
   `,
     [season]
   );
@@ -375,6 +393,10 @@ export async function getRankTrends(): Promise<RankTrendPoint[]> {
         ORDER BY (tbs.wins::numeric / NULLIF(tbs.wins + tbs.losses + tbs.ties, 0)) DESC, tbs.points_for DESC
       ) AS win_pct_rank
     FROM teams_by_season tbs JOIN owners o ON o.id = tbs.owner_id
+    WHERE EXISTS (
+      SELECT 1 FROM teams_by_season champion_row
+      WHERE champion_row.season = tbs.season AND champion_row.champion = true
+    )
     ORDER BY tbs.season, win_pct_rank
   `);
   return res.rows.map((r: Record<string, any>) => ({
@@ -457,6 +479,77 @@ export async function getSeasonWeeklyProjections(season: number): Promise<Weekly
   });
 }
 
+export type StarterBenchPoint = {
+  week: number;
+  owner: string;
+  starters: number;
+  bench: number;
+};
+
+export type PlayerProjectionPoint = {
+  week: number;
+  owner: string;
+  player: string;
+  position: string;
+  isBench: boolean;
+  actual: number;
+  projected: number;
+  difference: number;
+};
+
+export async function getCurrentSeasonPreviewData(season: number): Promise<{
+  starterBench: StarterBenchPoint[];
+  playerProjections: PlayerProjectionPoint[];
+}> {
+  const [starterBench, playerProjections] = await Promise.all([
+    pool.query(
+      `
+      SELECT pws.week, o.name AS owner,
+        COALESCE(SUM(pws.fan_pts) FILTER (WHERE NOT pws.is_bench), 0) AS starters,
+        COALESCE(SUM(pws.fan_pts) FILTER (WHERE pws.is_bench), 0) AS bench
+      FROM player_weekly_stats pws
+      JOIN owners o ON o.id = pws.owner_id
+      WHERE pws.season = $1
+      GROUP BY pws.week, o.name
+      ORDER BY pws.week, starters DESC
+    `,
+      [season]
+    ),
+    pool.query(
+      `
+      SELECT pws.week, o.name AS owner, pws.player_name AS player, pws.pos AS position, pws.is_bench,
+        pws.fan_pts AS actual, pws.proj_pts AS projected,
+        pws.fan_pts - pws.proj_pts AS difference
+      FROM player_weekly_stats pws
+      JOIN owners o ON o.id = pws.owner_id
+      WHERE pws.season = $1
+        AND pws.fan_pts IS NOT NULL AND pws.proj_pts IS NOT NULL
+      ORDER BY pws.week, ABS(pws.fan_pts - pws.proj_pts) DESC, pws.fan_pts DESC
+    `,
+      [season]
+    ),
+  ]);
+
+  return {
+    starterBench: starterBench.rows.map((row: Record<string, any>) => ({
+      week: Number(row.week),
+      owner: row.owner,
+      starters: Number(row.starters),
+      bench: Number(row.bench),
+    })),
+    playerProjections: playerProjections.rows.map((row: Record<string, any>) => ({
+      week: Number(row.week),
+      owner: row.owner,
+      player: row.player,
+      position: row.position,
+      isBench: row.is_bench,
+      actual: Number(row.actual),
+      projected: Number(row.projected),
+      difference: Number(row.difference),
+    })),
+  };
+}
+
 export type WeeklyScorePoint = { week: number; owner: string; points: number };
 
 export async function getSeasonWeeklyScores(season: number): Promise<WeeklyScorePoint[]> {
@@ -534,11 +627,39 @@ export type ManagerDetail = {
 export async function getManagerDetail(owner: string): Promise<ManagerDetail | null> {
   const res = await pool.query(
     `
-    SELECT tbs.season, tbs.team_name, tbs.final_rank, tbs.wins, tbs.losses, tbs.ties,
-      tbs.points_for, tbs.points_against, tbs.made_playoffs, tbs.champion, tbs.draft_order
-    FROM teams_by_season tbs JOIN owners o ON o.id = tbs.owner_id
-    WHERE o.name = $1
-    ORDER BY tbs.season
+    WITH weekly AS (
+      SELECT season, owner_id,
+        COUNT(*) AS games,
+        SUM(CASE WHEN points_scored > opponent_points THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN points_scored < opponent_points THEN 1 ELSE 0 END) AS losses,
+        SUM(CASE WHEN points_scored = opponent_points THEN 1 ELSE 0 END) AS ties,
+        SUM(points_scored) AS points_for,
+        SUM(opponent_points) AS points_against
+      FROM weekly_matchups
+      GROUP BY season, owner_id
+    ), calculated AS (
+      SELECT tbs.season, tbs.team_name, o.name AS owner, tbs.made_playoffs, tbs.champion, tbs.draft_order,
+        CASE WHEN weekly.games > 0 THEN weekly.wins ELSE tbs.wins END AS wins,
+        CASE WHEN weekly.games > 0 THEN weekly.losses ELSE tbs.losses END AS losses,
+        CASE WHEN weekly.games > 0 THEN weekly.ties ELSE tbs.ties END AS ties,
+        CASE WHEN weekly.games > 0 THEN weekly.points_for ELSE tbs.points_for END AS points_for,
+        CASE WHEN weekly.games > 0 THEN weekly.points_against ELSE tbs.points_against END AS points_against,
+        tbs.final_rank
+      FROM teams_by_season tbs
+      JOIN owners o ON o.id = tbs.owner_id
+      LEFT JOIN weekly ON weekly.season = tbs.season AND weekly.owner_id = tbs.owner_id
+    ), ranked AS (
+      SELECT *,
+        CASE WHEN final_rank IS NULL OR wins > 0 OR losses > 0 OR ties > 0
+          THEN RANK() OVER (PARTITION BY season ORDER BY wins DESC, points_for DESC)
+          ELSE final_rank END AS computed_rank
+      FROM calculated
+    )
+    SELECT season, team_name, computed_rank AS final_rank, wins, losses, ties,
+      points_for, points_against, made_playoffs, champion, draft_order
+    FROM ranked
+    WHERE owner = $1
+    ORDER BY season
   `,
     [owner]
   );
@@ -605,10 +726,27 @@ export type ManagerWinPctPoint = {
 // uncapped, for the same single-entity reason as getManagerDetail.
 export async function getManagerWinPctTrend(owner: string): Promise<ManagerWinPctPoint[]> {
   const res = await pool.query(`
-    SELECT tbs.season, o.name AS owner, tbs.wins, tbs.losses, tbs.ties,
-      AVG(tbs.wins::numeric / NULLIF(tbs.wins + tbs.losses + tbs.ties, 0)) OVER (PARTITION BY tbs.season) AS league_avg_win_pct
-    FROM teams_by_season tbs JOIN owners o ON o.id = tbs.owner_id
-    ORDER BY tbs.season
+    WITH weekly AS (
+      SELECT season, owner_id,
+        COUNT(*) AS games,
+        SUM(CASE WHEN points_scored > opponent_points THEN 1 ELSE 0 END) AS wins,
+        SUM(CASE WHEN points_scored < opponent_points THEN 1 ELSE 0 END) AS losses,
+        SUM(CASE WHEN points_scored = opponent_points THEN 1 ELSE 0 END) AS ties
+      FROM weekly_matchups
+      GROUP BY season, owner_id
+    ), calculated AS (
+      SELECT tbs.season, o.name AS owner,
+        CASE WHEN weekly.games > 0 THEN weekly.wins ELSE tbs.wins END AS wins,
+        CASE WHEN weekly.games > 0 THEN weekly.losses ELSE tbs.losses END AS losses,
+        CASE WHEN weekly.games > 0 THEN weekly.ties ELSE tbs.ties END AS ties
+      FROM teams_by_season tbs
+      JOIN owners o ON o.id = tbs.owner_id
+      LEFT JOIN weekly ON weekly.season = tbs.season AND weekly.owner_id = tbs.owner_id
+    )
+    SELECT season, owner, wins, losses, ties,
+      AVG(wins::numeric / NULLIF(wins + losses + ties, 0)) OVER (PARTITION BY season) AS league_avg_win_pct
+    FROM calculated
+    ORDER BY season
   `);
   return res.rows
     .filter((r: Record<string, any>) => r.owner === owner)

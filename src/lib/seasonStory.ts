@@ -280,9 +280,12 @@ export function buildSeasonStory(
   const biggestCollapse = swings.find((s) => s.type === "collapse") ?? null;
 
   const champion = standings.find((s) => s.champion);
+  const latestWeek = matchups.length ? Math.max(...matchups.map((matchup) => matchup.week)) : null;
   let headline = champion
     ? `${champion.owner} claimed the ${season} title, finishing ${champion.wins}-${champion.losses}${champion.ties ? `-${champion.ties}` : ""}.`
-    : `The ${season} season is in the books.`;
+    : latestWeek
+      ? `The ${season} season is in the books through Week ${latestWeek}.`
+      : `The ${season} season is in the books.`;
 
   if (biggestCollapse) {
     headline += ` ${biggestCollapse.owner} looked playoff-bound at the midpoint (rank ${biggestCollapse.midpointRank}) but collapsed to finish ${biggestCollapse.finalRank}th.`;

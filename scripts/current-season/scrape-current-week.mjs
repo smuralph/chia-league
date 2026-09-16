@@ -66,6 +66,53 @@ function textFromSelectors(doc, selectors) {
   return null;
 }
 
+function extractRosterTables(doc) {
+  const playerColumnLabels = ["Offense", "Kickers", "Defense/Special Teams"];
+
+  const cellText = (element) => element.textContent.replace(/\s+/g, " ").trim();
+  const playerCellText = (element) => {
+    const link = element.querySelector("a");
+    return link ? cellText(link) : cellText(element);
+  };
+
+  return Array.from(doc.querySelectorAll("table")).flatMap((table) => {
+    const headerRows = Array.from(table.querySelectorAll("thead tr"));
+    if (headerRows.length < 2) return [];
+
+    const groupCells = Array.from(headerRows[0].children);
+    const subCells = Array.from(headerRows[1].children);
+    const expandedGroups = [];
+    for (const cell of groupCells) {
+      const span = Number(cell.colSpan || 1);
+      for (let index = 0; index < span; index += 1) expandedGroups.push(cellText(cell));
+    }
+
+    const subHeaders = subCells.map(cellText);
+    const playerColumnIndex = subHeaders.findIndex((header) => playerColumnLabels.includes(header));
+    if (playerColumnIndex === -1) return [];
+
+    const columns = subHeaders.map((header, index) => {
+      const group = expandedGroups[index] || "";
+      return group && group !== header ? `${group} - ${header}` : header;
+    });
+    const rows = Array.from(table.querySelectorAll("tbody tr")).map((row) => {
+      const values = {};
+      Array.from(row.children).forEach((cell, index) => {
+        if (!columns[index]) return;
+        values[columns[index]] = index === playerColumnIndex ? playerCellText(cell) : cellText(cell);
+      });
+      return values;
+    });
+
+    return [{
+      sectionLabel: subHeaders[playerColumnIndex],
+      columns: columns.filter(Boolean),
+      rowCount: rows.length,
+      rows,
+    }];
+  });
+}
+
 function extractLivePageSnapshot(doc, owner, teamName) {
   const selectorSets = {
     teamName: [
@@ -114,52 +161,47 @@ async function extractTeamPageData({ page, owner, teamName }) {
     const title = document.title || "";
     const ownerMatch = text.toLowerCase().includes(String(ownerName || "").toLowerCase());
 
-    const selectorSets = {
-      teamName: [
-        "h1",
-        "h2",
-        "[data-test*='team-name']",
-        "[data-test*='teamName']",
-        "[class*='team-name']",
-        "[class*='teamName']",
-        ".team-name",
-        ".teamName",
-        ".header-team-name",
-        ".TeamName",
-      ],
-      score: [
-        ".team-score",
-        ".matchup-score",
-        "[data-test*='score']",
-        "span[data-test*='points']",
-        "[class*='score']",
-      ],
-    };
+    const titleTeamMatch = title.match(/ - (.+?) \| Fantasy Football/i);
+    const detectedTeamName = titleTeamMatch ? titleTeamMatch[1].trim() : null;
+    const scoreMatch = text.match(/(\d+(?:\.\d+)?)\s+Total Points/i);
+    const detectedScore = scoreMatch ? scoreMatch[1] : null;
 
-    const readText = (selectors) => {
-      for (const selector of selectors) {
-        const node = document.querySelector(selector);
-        if (node && node.textContent) {
-          const value = node.textContent.replace(/\s+/g, " ").trim();
-          if (value) return value;
-        }
+    const cellText = (element) => element.textContent.replace(/\s+/g, " ").trim();
+    const playerCellText = (element) => {
+      const link = element.querySelector("a");
+      return link ? cellText(link) : cellText(element);
+    };
+    const playerColumnLabels = ["Offense", "Kickers", "Defense/Special Teams"];
+    const rosterTables = Array.from(document.querySelectorAll("table")).flatMap((table) => {
+      const headerRows = Array.from(table.querySelectorAll("thead tr"));
+      if (headerRows.length < 2) return [];
+      const groupCells = Array.from(headerRows[0].children);
+      const subCells = Array.from(headerRows[1].children);
+      const expandedGroups = [];
+      for (const cell of groupCells) {
+        const span = Number(cell.colSpan || 1);
+        for (let index = 0; index < span; index += 1) expandedGroups.push(cellText(cell));
       }
-      return null;
-    };
-
-    const detectedTeamName = readText(selectorSets.teamName);
-    const detectedScore = readText(selectorSets.score);
-
-    const rows = Array.from(document.querySelectorAll("tr, li, .player-row, [data-test*='player']")).slice(0, 25).map((row) => {
-      const cellText = row.textContent ? row.textContent.replace(/\s+/g, " ").trim() : "";
-      return cellText ? cellText : null;
-    }).filter(Boolean);
+      const subHeaders = subCells.map(cellText);
+      const playerColumnIndex = subHeaders.findIndex((header) => playerColumnLabels.includes(header));
+      if (playerColumnIndex === -1) return [];
+      const columns = subHeaders.map((header, index) => {
+        const group = expandedGroups[index] || "";
+        return group && group !== header ? `${group} - ${header}` : header;
+      });
+      const rows = Array.from(table.querySelectorAll("tbody tr")).map((row) => {
+        const values = {};
+        Array.from(row.children).forEach((cell, index) => {
+          if (columns[index]) values[columns[index]] = index === playerColumnIndex ? playerCellText(cell) : cellText(cell);
+        });
+        return values;
+      });
+      return [{ sectionLabel: subHeaders[playerColumnIndex], columns, rowCount: rows.length, rows }];
+    });
 
     const bodyText = text || "";
-    const hasNoPlayerStats =
-      !bodyText.match(/(player|starter|bench|roster|week\s*\d+.*stats)/i) ||
-      bodyText.includes("Your team will include the following roster positions") ||
-      rows.length === 0;
+    const playerRows = rosterTables.flatMap((table) => table.rows);
+    const hasNoPlayerStats = rosterTables.length === 0 || playerRows.length === 0;
 
     return {
       title,
@@ -170,7 +212,8 @@ async function extractTeamPageData({ page, owner, teamName }) {
         : false,
       detectedTeamName,
       detectedScore,
-      rosterPreview: rows,
+      rosterTables,
+      rosterPreview: playerRows,
       bodySnippet: text.slice(0, 1500),
       hasNoPlayerStats,
       pageState: hasNoPlayerStats ? "waiting_for_weekly_stats" : "stats_available",
@@ -214,7 +257,7 @@ async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week,
       hasNoPlayerStats: pageSnapshot.hasNoPlayerStats,
       pageState: pageSnapshot.pageState || "stats_available",
     },
-    roster: [],
+    roster: pageSnapshot.rosterTables || [],
     players: pageSnapshot.rosterPreview || [],
     rawHtmlSnippet: pageSnapshot.bodySnippet || pageSnapshot.title || "",
     validation: {

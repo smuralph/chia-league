@@ -76,6 +76,52 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+.live-2026-season-button::before,
+.live-2026-season-button::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: -0.45rem -0.65rem;
+  border: 2px solid rgba(208, 59, 59, 0.88);
+  border-radius: 48% 52% 50% 46%;
+  transform: rotate(-3deg) scale(0.96);
+  animation: marker-circle 2.4s ease-in-out infinite;
+}
+
+.live-2026-season-button::after {
+  inset: -0.55rem -0.8rem;
+  border-width: 1px;
+  border-color: rgba(208, 59, 59, 0.38);
+  border-radius: 52% 46% 54% 49%;
+  transform: rotate(4deg) scale(0.94);
+  animation-delay: -0.8s;
+}
+
+@keyframes marker-circle {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: rotate(-3deg) scale(0.94);
+  }
+  45% {
+    opacity: 1;
+    transform: rotate(2deg) scale(1.04);
+  }
+  70% {
+    opacity: 0.72;
+    transform: rotate(-1deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-2026-season-button::before,
+  .live-2026-season-button::after {
+    animation: none;
+    opacity: 0.75;
+    transform: rotate(-2deg) scale(1);
+  }
+}
+
 .about-page {
   position: relative;
   background: #0d0d0d;
