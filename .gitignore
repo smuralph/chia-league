@@ -19,6 +19,7 @@
 
 # production
 /build
+/backups/
 
 # misc
 .DS_Store
@@ -48,6 +49,7 @@ scripts/yahoo-scrape/config.csv
 scripts/yahoo-scrape/output/
 scripts/yahoo-scrape/failures.log
 scripts/yahoo-scrape/smoke-output.txt
+scripts/current-season/output/
 
 .vercel
 .env*

@@ -17,5 +17,8 @@ function loadEnvLocal() {
 loadEnvLocal();
 
 export const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL_UNPOOLED?.includes("neon.tech") || process.env.DATABASE_URL?.includes("neon.tech")
+    ? { rejectUnauthorized: false }
+    : undefined,
 });

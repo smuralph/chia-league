@@ -2,7 +2,7 @@
   "leagueName": "Chia League",
   "season": 2026,
   "leagueId": "793823",
-  "currentWeek": 1,
+  "currentWeek": 2,
   "teams": [
     {
       "draftOrder": 1,
@@ -62,7 +62,7 @@
       "draftOrder": 10,
       "teamId": "4",
       "teamName": "TBD - verify against live Yahoo team page",
-      "owner": "Marco DeLeon"
+      "owner": "Marco De Leon"
     },
     {
       "draftOrder": 11,

@@ -76,7 +76,15 @@ async function main() {
   const client = await pool.connect();
   const teamOwnerMap = await loadTeamOwnerMap(client);
 
+  const existingRowsRes = await client.query(
+    `SELECT DISTINCT season, week, owner_id FROM player_weekly_stats`
+  );
+  const existingRows = new Set(
+    existingRowsRes.rows.map((row) => `${row.season}|${row.week}|${row.owner_id}`)
+  );
+
   let skippedNoOwner = 0;
+  let skippedExisting = 0;
   const skippedTeams = new Set();
   const pending = [];
   let totalInserted = 0;
@@ -106,6 +114,12 @@ async function main() {
         const weekNum = Number(weekFile.match(/\d+/)[0]);
         const data = JSON.parse(fs.readFileSync(path.join(teamDir, weekFile), "utf8"));
         const playerRows = extractPlayerRows(data);
+        const existingKey = `${Number(season)}|${weekNum}|${ownerId}`;
+
+        if (existingRows.has(existingKey)) {
+          skippedExisting++;
+          continue;
+        }
 
         for (const p of playerRows) {
           pending.push({ season: Number(season), week: weekNum, owner_id: ownerId, ...p });
@@ -120,7 +134,8 @@ async function main() {
   }
   await flush();
 
-  console.log(`\nInserted ${totalInserted} player_weekly_stats rows.`);
+  console.log(`\nInserted ${totalInserted} new player_weekly_stats rows.`);
+  console.log(`Skipped ${skippedExisting} existing season/week/owner rows already in the database.`);
   console.log(`Skipped ${skippedNoOwner} team-weeks with no resolved owner (departed managers): ${[...skippedTeams].join(", ")}`);
 
   client.release();
