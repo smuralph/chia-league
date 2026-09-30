@@ -6,6 +6,13 @@ import { pool } from "./db.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, "..", "..");
 const CURRENT_SEASON_DIR = path.join(REPO_ROOT, "scripts", "current-season");
+const OWNER_ALIASES = new Map([["marcodeleon", "Marco De Leon"]]);
+
+function canonicalOwnerName(name) {
+  const normalized = String(name).trim().replace(/\s+/g, " ");
+  const aliasKey = normalized.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return OWNER_ALIASES.get(aliasKey) || normalized;
+}
 
 function loadConfig() {
   return JSON.parse(fs.readFileSync(path.join(CURRENT_SEASON_DIR, "config.json"), "utf8"));
@@ -50,11 +57,12 @@ function extractPlayerRows(payload) {
 }
 
 async function upsertOwner(client, name) {
+  const canonicalName = canonicalOwnerName(name);
   const result = await client.query(
     `INSERT INTO owners (name) VALUES ($1)
      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
      RETURNING id`,
-    [name]
+    [canonicalName]
   );
   return result.rows[0].id;
 }

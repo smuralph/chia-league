@@ -155,16 +155,22 @@ function extractLivePageSnapshot(doc, owner, teamName) {
   };
 }
 
-async function extractTeamPageData({ page, owner, teamName }) {
-  return page.evaluate(({ ownerName, teamNameValue }) => {
+async function extractTeamPageData({ page, owner, teamName, week }) {
+  return page.evaluate(({ ownerName, teamNameValue, week }) => {
     const text = document.body.innerText || "";
+    const normalizedText = text.replace(/\s+/g, " ").replace(/\u00a0/g, " ");
     const title = document.title || "";
     const ownerMatch = text.toLowerCase().includes(String(ownerName || "").toLowerCase());
 
     const titleTeamMatch = title.match(/ - (.+?) \| Fantasy Football/i);
     const detectedTeamName = titleTeamMatch ? titleTeamMatch[1].trim() : null;
-    const scoreMatch = text.match(/(\d+(?:\.\d+)?)\s+Total Points/i);
-    const detectedScore = scoreMatch ? scoreMatch[1] : null;
+    const seasonTotalMatch = text.match(/(\d+(?:\.\d+)?)\s+Total Points/i);
+    const weeklyMatchupMatch = normalizedText.match(
+      new RegExp(`Week\\s+${week}\\s+vs\\s+.+?\\s+•\\s+\\d+(?:st|nd|rd|th)\\s+(\\d+(?:\\.\\d+)?)\\s+\\d+(?:\\.\\d+)?\\s+vs\\s+(\\d+(?:\\.\\d+)?)`, "i")
+    );
+    const detectedScore = weeklyMatchupMatch ? weeklyMatchupMatch[1] : null;
+    const detectedOpponentScore = weeklyMatchupMatch ? weeklyMatchupMatch[2] : null;
+    const detectedSeasonTotal = seasonTotalMatch ? seasonTotalMatch[1] : null;
 
     const cellText = (element) => element.textContent.replace(/\s+/g, " ").trim();
     const playerCellText = (element) => {
@@ -212,13 +218,15 @@ async function extractTeamPageData({ page, owner, teamName }) {
         : false,
       detectedTeamName,
       detectedScore,
+      detectedOpponentScore,
+      detectedSeasonTotal,
       rosterTables,
       rosterPreview: playerRows,
       bodySnippet: text.slice(0, 1500),
       hasNoPlayerStats,
       pageState: hasNoPlayerStats ? "waiting_for_weekly_stats" : "stats_available",
     };
-  }, { ownerName: owner, teamNameValue: teamName });
+  }, { ownerName: owner, teamNameValue: teamName, week });
 }
 
 async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week, page }) {
@@ -226,7 +234,7 @@ async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week,
   await page.goto(url, { waitUntil: "domcontentloaded" });
 
   const pageIdentity = await verifyOwnerMatch({ page, owner, teamName });
-  const pageSnapshot = await extractTeamPageData({ page, owner, teamName });
+  const pageSnapshot = await extractTeamPageData({ page, owner, teamName, week });
 
   const observedTeamName = pageSnapshot.detectedTeamName || teamName || null;
   const payload = {
@@ -252,6 +260,8 @@ async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week,
       title: pageSnapshot.title,
       detectedTeamName: pageSnapshot.detectedTeamName,
       detectedScore: pageSnapshot.detectedScore,
+      detectedOpponentScore: pageSnapshot.detectedOpponentScore,
+      detectedSeasonTotal: pageSnapshot.detectedSeasonTotal,
       ownerMatched: pageIdentity.ownerMatched,
       teamNameMatched: pageSnapshot.teamNameMatched,
       hasNoPlayerStats: pageSnapshot.hasNoPlayerStats,
