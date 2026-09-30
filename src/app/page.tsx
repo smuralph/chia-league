@@ -13,6 +13,8 @@ import { TeamNameCloud } from "@/components/TeamNameCloud";
 import { PlayerNetworkGraph } from "@/components/PlayerNetworkGraph";
 import { Live2026SeasonButton } from "@/components/Live2026SeasonButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [kpis, leaderboard, pointsOverTime, seasonHighs, teamNames, playerNetwork] = await Promise.all([
     getLeagueKpis(),
