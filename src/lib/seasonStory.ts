@@ -163,47 +163,124 @@ export type Upset = {
   week: number;
   winner: string;
   loser: string;
-  winnerEnteringWinPct: number;
-  loserEnteringWinPct: number;
-  gap: number;
+  winnerProjected: number;
+  loserProjected: number;
+  winnerActual: number;
+  loserActual: number;
+  swing: number;
 };
 
-// "Upset" = the winner had a worse entering (that week's starting) win% than
-// the loser. Week 1 has no entering record for anyone, so it's excluded.
-// Resolves entering win% for both sides of every matchup using a full
-// owner+week -> record lookup (needed since a deduped row only carries one
-// side's before-state).
-export function resolveUpsets(records: WeekRecord[], limit = 3): Upset[] {
-  const byOwnerWeek = new Map<string, WeekRecord>();
-  for (const r of records) byOwnerWeek.set(`${r.owner}|${r.week}`, r);
+export type TeamWeekProjection = {
+  week: number;
+  owner: string;
+  actual: number;
+  projected: number | null;
+};
 
-  const deduped = dedupedMatchups(records).filter((r) => r.week > 1 && r.result !== "T");
+export type ProjectionSwing = {
+  week: number;
+  owner: string;
+  actual: number;
+  projected: number;
+  swing: number;
+};
+
+export type ProjectionSwingExtremes = {
+  biggestPositive: ProjectionSwing | null;
+  biggestNegative: ProjectionSwing | null;
+};
+
+export type ProjectionSwingSummary = {
+  seasonToDate: ProjectionSwingExtremes;
+  mostRecentWeek: number | null;
+  mostRecentWeekExtremes: ProjectionSwingExtremes;
+};
+
+function getProjectionSwingExtremes(projections: TeamWeekProjection[]): ProjectionSwingExtremes {
+  let biggestPositive: ProjectionSwing | null = null;
+  let biggestNegative: ProjectionSwing | null = null;
+  for (const projection of projections) {
+    if (projection.projected === null) continue;
+
+    const swing = projection.actual - projection.projected;
+    if (swing === 0) continue;
+    const candidate = {
+      week: projection.week,
+      owner: projection.owner,
+      actual: projection.actual,
+      projected: projection.projected,
+      swing,
+    };
+
+    if (swing > 0 && (!biggestPositive || swing > biggestPositive.swing)) {
+      biggestPositive = candidate;
+    }
+    if (swing < 0 && (!biggestNegative || swing < biggestNegative.swing)) {
+      biggestNegative = candidate;
+    }
+  }
+
+  return { biggestPositive, biggestNegative };
+}
+
+function getProjectionSwingSummary(projections: TeamWeekProjection[]): ProjectionSwingSummary {
+  const projectedWeeks = projections.filter((projection) => projection.projected !== null).map((projection) => projection.week);
+  const mostRecentWeek = projectedWeeks.length ? Math.max(...projectedWeeks) : null;
+  const latestWeekProjections = mostRecentWeek === null
+    ? []
+    : projections.filter((projection) => projection.week === mostRecentWeek);
+
+  return {
+    seasonToDate: getProjectionSwingExtremes(projections),
+    mostRecentWeek,
+    mostRecentWeekExtremes: getProjectionSwingExtremes(latestWeekProjections),
+  };
+}
+
+// A projection upset occurs when the team projected to score fewer points wins.
+// Rank it by how far the actual winner-loser margin moved from the projected margin.
+export function resolveUpsets(
+  records: WeekRecord[],
+  projections: TeamWeekProjection[] = [],
+  limit = 3
+): Upset[] {
+  const projectedByOwnerWeek = new Map<string, number>();
+  for (const projection of projections) {
+    if (projection.projected !== null) {
+      projectedByOwnerWeek.set(`${projection.owner}|${projection.week}`, projection.projected);
+    }
+  }
+
+  const deduped = dedupedMatchups(records).filter((r) => r.result !== "T");
   const upsets: Upset[] = [];
 
   for (const r of deduped) {
-    const opponentRecord = byOwnerWeek.get(`${r.opponentOwner}|${r.week}`);
-    if (!opponentRecord) continue;
-
-    const ownerPct = winPct(r.cumWinsBefore, r.cumLossesBefore, r.cumTiesBefore);
-    const oppPct = winPct(opponentRecord.cumWinsBefore, opponentRecord.cumLossesBefore, opponentRecord.cumTiesBefore);
-    if (ownerPct === null || oppPct === null) continue;
+    const ownerProjected = projectedByOwnerWeek.get(`${r.owner}|${r.week}`);
+    const opponentProjected = projectedByOwnerWeek.get(`${r.opponentOwner}|${r.week}`);
+    if (ownerProjected === undefined || opponentProjected === undefined || ownerProjected === opponentProjected) continue;
 
     const ownerWon = r.points > r.opponentPoints;
-    const winnerPct = ownerWon ? ownerPct : oppPct;
-    const loserPct = ownerWon ? oppPct : ownerPct;
-    if (winnerPct >= loserPct) continue; // not an upset
+    const ownerWasProjectedFavorite = ownerProjected > opponentProjected;
+    if (ownerWon === ownerWasProjectedFavorite) continue;
+
+    const winnerProjected = ownerWon ? ownerProjected : opponentProjected;
+    const loserProjected = ownerWon ? opponentProjected : ownerProjected;
+    const winnerActual = ownerWon ? r.points : r.opponentPoints;
+    const loserActual = ownerWon ? r.opponentPoints : r.points;
 
     upsets.push({
       week: r.week,
       winner: ownerWon ? r.owner : r.opponentOwner,
       loser: ownerWon ? r.opponentOwner : r.owner,
-      winnerEnteringWinPct: winnerPct,
-      loserEnteringWinPct: loserPct,
-      gap: loserPct - winnerPct,
+      winnerProjected,
+      loserProjected,
+      winnerActual,
+      loserActual,
+      swing: (winnerActual - loserActual) - (winnerProjected - loserProjected),
     });
   }
 
-  return upsets.sort((a, b) => b.gap - a.gap).slice(0, limit);
+  return upsets.sort((a, b) => b.swing - a.swing).slice(0, limit);
 }
 
 export type StandingsSwing = {
@@ -259,6 +336,7 @@ export type SeasonStory = {
   longestWinStreak: Streak | null;
   longestLossStreak: Streak | null;
   biggestUpsets: Upset[];
+  projectionSwingSummary: ProjectionSwingSummary;
   biggestComeback: StandingsSwing | null;
   biggestCollapse: StandingsSwing | null;
 };
@@ -266,7 +344,8 @@ export type SeasonStory = {
 export function buildSeasonStory(
   season: number,
   matchups: WeeklyMatchupRow[],
-  standings: SeasonStandingsRow[]
+  standings: SeasonStandingsRow[],
+  projections: TeamWeekProjection[] = []
 ): SeasonStory {
   const records = buildWeekRecords(matchups);
   const owners = [...new Set(matchups.map((m) => m.owner))];
@@ -274,7 +353,8 @@ export function buildSeasonStory(
   const biggestBlowout = getBiggestBlowout(records);
   const closestGame = getClosestGame(records);
   const { longestWinStreak, longestLossStreak } = getLongestStreaks(records, owners);
-  const biggestUpsets = resolveUpsets(records, 3);
+  const biggestUpsets = resolveUpsets(records, projections, 3);
+  const projectionSwingSummary = getProjectionSwingSummary(projections);
   const swings = getStandingsSwings(records, standings);
   const biggestComeback = swings.find((s) => s.type === "comeback") ?? null;
   const biggestCollapse = swings.find((s) => s.type === "collapse") ?? null;
@@ -300,6 +380,7 @@ export function buildSeasonStory(
     longestWinStreak,
     longestLossStreak,
     biggestUpsets,
+    projectionSwingSummary,
     biggestComeback,
     biggestCollapse,
   };

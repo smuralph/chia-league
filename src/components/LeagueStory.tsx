@@ -34,10 +34,51 @@ export function LeagueStory({ story }: { story: SeasonStory }) {
   if (story.biggestUpsets[0]) {
     const u = story.biggestUpsets[0];
     cards.push({
-      label: "Biggest Upset",
+      label: "Biggest Projection Upset",
       value: `${u.winner} over ${u.loser}`,
-      sub: `Week ${u.week} — entering ${(u.winnerEnteringWinPct * 100).toFixed(0)}% beat ${(u.loserEnteringWinPct * 100).toFixed(0)}%`,
+      sub: `Week ${u.week} — projected ${u.winnerProjected.toFixed(1)}–${u.loserProjected.toFixed(1)}; actual ${u.winnerActual.toFixed(1)}–${u.loserActual.toFixed(1)} (+${u.swing.toFixed(1)} pt swing)`,
     });
+  }
+  const addProjectionSwingCard = (
+    label: string,
+    swing: import("@/lib/seasonStory").ProjectionSwing | null,
+    emptyValue: string,
+    emptySub: string
+  ) => {
+    cards.push({
+      label,
+      value: swing ? `${swing.owner} ${swing.swing > 0 ? "+" : ""}${swing.swing.toFixed(1)} pts` : emptyValue,
+      sub: swing
+        ? `Week ${swing.week} — ${swing.actual.toFixed(1)} actual vs. ${swing.projected.toFixed(1)} projected`
+        : emptySub,
+    });
+  };
+  const projectionSwings = story.projectionSwingSummary;
+  if (projectionSwings.mostRecentWeek !== null) {
+    addProjectionSwingCard(
+      "Season to date · Top Positive Swing",
+      projectionSwings.seasonToDate.biggestPositive,
+      "No positive swing",
+      "No team has exceeded projection yet"
+    );
+    addProjectionSwingCard(
+      "Season to date · Top Negative Swing",
+      projectionSwings.seasonToDate.biggestNegative,
+      "No negative swing",
+      "No team has fallen below projection yet"
+    );
+    addProjectionSwingCard(
+      `Week ${projectionSwings.mostRecentWeek} · Top Positive Swing`,
+      projectionSwings.mostRecentWeekExtremes.biggestPositive,
+      "No positive swing",
+      `No team exceeded projection in Week ${projectionSwings.mostRecentWeek}`
+    );
+    addProjectionSwingCard(
+      `Week ${projectionSwings.mostRecentWeek} · Top Negative Swing`,
+      projectionSwings.mostRecentWeekExtremes.biggestNegative,
+      "No negative swing",
+      `No team fell below projection in Week ${projectionSwings.mostRecentWeek}`
+    );
   }
   if (story.biggestComeback) {
     cards.push({

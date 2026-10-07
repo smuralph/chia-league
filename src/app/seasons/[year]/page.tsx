@@ -29,7 +29,7 @@ export default async function SeasonPage({ params }: PageProps<"/seasons/[year]"
 
   if (standings.length === 0) notFound();
 
-  const story = buildSeasonStory(season, weeklyMatchups, standings);
+  const story = buildSeasonStory(season, weeklyMatchups, standings, weeklyProjections);
 
   return (
     <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-10 flex flex-col gap-8">
