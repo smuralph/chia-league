@@ -123,7 +123,9 @@ function extractTables() {
       for (let i = 0; i < span; i++) expandedGroups.push(label);
     }
 
-    const rawSubHeaders = subCells.map(cellText);
+    const rawSubHeaders = subCells.flatMap((cell) =>
+      Array.from({ length: Number(cell.colSpan || 1) }, () => cellText(cell))
+    );
     const playerColIndex = rawSubHeaders.findIndex((h) => PLAYER_COLUMN_LABELS.includes(h));
     if (playerColIndex === -1) continue; // not one of our three stat tables
 

@@ -35,11 +35,14 @@ CREATE TABLE IF NOT EXISTS weekly_matchups (
   owner_id INT NOT NULL REFERENCES owners(id),
   team_name TEXT NOT NULL,
   points_scored NUMERIC,
+  projected_points NUMERIC,
   opponent_owner_id INT REFERENCES owners(id),
   opponent_team_name TEXT,
   opponent_points NUMERIC,
   UNIQUE (season, week, owner_id)
 );
+
+ALTER TABLE weekly_matchups ADD COLUMN IF NOT EXISTS projected_points NUMERIC;
 
 -- Resolves Yahoo's per-season team_id (used in scrape URLs) to an owner,
 -- derived by fingerprint-matching computed weekly totals against

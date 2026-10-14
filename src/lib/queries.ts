@@ -455,13 +455,13 @@ export async function getSeasonWeeklyProjections(season: number): Promise<Weekly
   const res = await pool.query(
     `
     SELECT wm.week, o.name AS owner, wm.points_scored AS actual,
-      SUM(pws.proj_pts) AS projected
+      COALESCE(wm.projected_points, SUM(pws.proj_pts)) AS projected
     FROM weekly_matchups wm
     JOIN owners o ON o.id = wm.owner_id
     LEFT JOIN player_weekly_stats pws
       ON pws.season = wm.season AND pws.week = wm.week AND pws.owner_id = wm.owner_id AND pws.is_bench = false
     WHERE wm.season = $1
-    GROUP BY wm.week, o.name, wm.points_scored
+    GROUP BY wm.week, o.name, wm.points_scored, wm.projected_points
     ORDER BY wm.week, o.name
   `,
     [season]
@@ -482,7 +482,7 @@ export async function getSeasonWeeklyProjections(season: number): Promise<Weekly
 export type StarterBenchPoint = {
   week: number;
   owner: string;
-  starters: number;
+  finalScore: number;
   bench: number;
 };
 
@@ -504,14 +504,16 @@ export async function getCurrentSeasonPreviewData(season: number): Promise<{
   const [starterBench, playerProjections] = await Promise.all([
     pool.query(
       `
-      SELECT pws.week, o.name AS owner,
-        COALESCE(SUM(pws.fan_pts) FILTER (WHERE NOT pws.is_bench), 0) AS starters,
+      SELECT wm.week, o.name AS owner,
+        wm.points_scored AS final_score,
         COALESCE(SUM(pws.fan_pts) FILTER (WHERE pws.is_bench), 0) AS bench
-      FROM player_weekly_stats pws
-      JOIN owners o ON o.id = pws.owner_id
-      WHERE pws.season = $1
-      GROUP BY pws.week, o.name
-      ORDER BY pws.week, starters DESC
+      FROM weekly_matchups wm
+      JOIN owners o ON o.id = wm.owner_id
+      LEFT JOIN player_weekly_stats pws
+        ON pws.season = wm.season AND pws.week = wm.week AND pws.owner_id = wm.owner_id
+      WHERE wm.season = $1
+      GROUP BY wm.week, o.name, wm.points_scored
+      ORDER BY wm.week, final_score DESC
     `,
       [season]
     ),
@@ -534,7 +536,7 @@ export async function getCurrentSeasonPreviewData(season: number): Promise<{
     starterBench: starterBench.rows.map((row: Record<string, any>) => ({
       week: Number(row.week),
       owner: row.owner,
-      starters: Number(row.starters),
+      finalScore: Number(row.final_score),
       bench: Number(row.bench),
     })),
     playerProjections: playerProjections.rows.map((row: Record<string, any>) => ({

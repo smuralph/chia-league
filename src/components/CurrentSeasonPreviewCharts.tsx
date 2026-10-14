@@ -24,8 +24,8 @@ function StarterBenchTooltip({ active, payload }: { active?: boolean; payload?: 
   return (
     <div className="rounded-md border px-3 py-2 text-xs shadow-lg" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
       <strong style={{ color: "var(--foreground)" }}>{row.owner}</strong>
-      <div style={{ color: "var(--text-secondary)" }}>Starters: {row.starters.toFixed(1)}</div>
-      <div style={{ color: "var(--text-secondary)" }}>Bench: {row.bench.toFixed(1)}</div>
+      <div style={{ color: "var(--text-secondary)" }}>Final team score: {row.finalScore.toFixed(1)}</div>
+      <div style={{ color: "var(--text-secondary)" }}>Bench player points: {row.bench.toFixed(1)}</div>
     </div>
   );
 }
@@ -75,7 +75,7 @@ export function CurrentSeasonPreviewCharts({
   starterBench: StarterBenchPoint[];
   playerProjections: PlayerProjectionPoint[];
 }) {
-  const [barFocus, setBarFocus] = useState<"starters" | "bench" | null>(null);
+  const [barFocus, setBarFocus] = useState<"finalScore" | "bench" | null>(null);
   const [ownerHover, setOwnerHover] = useState<string | null>(null);
   const [ownerFocus, setOwnerFocus] = useState<string | null>(null);
   const weeks = useMemo(
@@ -102,7 +102,7 @@ export function CurrentSeasonPreviewCharts({
       <section className="rounded-lg border p-5" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>Starter vs. Bench Points</h2>
+            <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>Final Team Score vs. Bench Points</h2>
                   <label className="text-sm flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
               Week:
               <select value={selectedWeek} onChange={(event) => setSelectedWeek(Number(event.target.value))} className="rounded border px-2 py-1 text-sm" style={{ background: "var(--surface)", borderColor: "var(--border)", color: "var(--foreground)" }}>
@@ -110,10 +110,10 @@ export function CurrentSeasonPreviewCharts({
               </select>
             </label>
           </div>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Scoring split by lineup status. Click a bar to compare that category.</p>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Final team score uses Yahoo's matchup result; bench points sum player Fan Pts for non-starters and are not included in the team score.</p>
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs" style={{ color: "var(--text-secondary)" }} aria-label="Starter and bench bar color legend">
-            <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--primary)" }} /> Starters</span>
-            <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--accent)" }} /> Bench</span>
+            <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--primary)" }} /> Final team score</span>
+            <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm" style={{ background: "var(--accent)" }} /> Bench player points</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={360}>
@@ -123,18 +123,18 @@ export function CurrentSeasonPreviewCharts({
             <YAxis type="category" dataKey="owner" width={112} stroke="var(--baseline)" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} />
             <Tooltip content={<StarterBenchTooltip />} />
             <Bar
-              dataKey="starters"
-              name="Starters"
+              dataKey="finalScore"
+              name="Final team score"
               fill="var(--primary)"
               isAnimationActive={false}
-              onClick={() => setBarFocus((current) => current === "starters" ? null : "starters")}
+              onClick={() => setBarFocus((current) => current === "finalScore" ? null : "finalScore")}
             >
-              <LabelList dataKey="starters" position="right" formatter={(value) => Number(value).toFixed(1)} fill="var(--text-secondary)" fontSize={11} />
-              {selectedStarterBench.map((row) => <Cell key={`${row.owner}-starters`} fill="var(--primary)" opacity={barFocus && barFocus !== "starters" ? 0.25 : 1} />)}
+              <LabelList dataKey="finalScore" position="right" formatter={(value) => Number(value).toFixed(1)} fill="var(--text-secondary)" fontSize={11} />
+              {selectedStarterBench.map((row) => <Cell key={`${row.owner}-final-score`} fill="var(--primary)" opacity={barFocus && barFocus !== "finalScore" ? 0.25 : 1} />)}
             </Bar>
             <Bar
               dataKey="bench"
-              name="Bench"
+              name="Bench player points"
               fill="var(--accent)"
               radius={[0, 4, 4, 0]}
               isAnimationActive={false}

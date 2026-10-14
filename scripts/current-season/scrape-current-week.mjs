@@ -16,6 +16,15 @@ function loadConfig() {
   return JSON.parse(fs.readFileSync(configPath, "utf8"));
 }
 
+function resolveWeek(config) {
+  const override = process.argv.find((argument) => argument.startsWith("--week="));
+  const week = override ? Number(override.slice("--week=".length)) : Number(config.currentWeek);
+  if (!Number.isInteger(week) || week < 1 || week > 18) {
+    throw new Error(`Invalid week: ${override ?? config.currentWeek}`);
+  }
+  return week;
+}
+
 function resolveStorageStatePath(config) {
   const repoRoot = path.resolve(__dirname, "..", "..");
   const configured = config.yahoo?.storageStatePath || "./scripts/yahoo-scrape/storageState.json";
@@ -87,7 +96,9 @@ function extractRosterTables(doc) {
       for (let index = 0; index < span; index += 1) expandedGroups.push(cellText(cell));
     }
 
-    const subHeaders = subCells.map(cellText);
+    const subHeaders = subCells.flatMap((cell) =>
+      Array.from({ length: Number(cell.colSpan || 1) }, () => cellText(cell))
+    );
     const playerColumnIndex = subHeaders.findIndex((header) => playerColumnLabels.includes(header));
     if (playerColumnIndex === -1) return [];
 
@@ -166,10 +177,12 @@ async function extractTeamPageData({ page, owner, teamName, week }) {
     const detectedTeamName = titleTeamMatch ? titleTeamMatch[1].trim() : null;
     const seasonTotalMatch = text.match(/(\d+(?:\.\d+)?)\s+Total Points/i);
     const weeklyMatchupMatch = normalizedText.match(
-      new RegExp(`Week\\s+${week}\\s+vs\\s+.+?\\s+•\\s+\\d+(?:st|nd|rd|th)\\s+(\\d+(?:\\.\\d+)?)\\s+\\d+(?:\\.\\d+)?\\s+vs\\s+(\\d+(?:\\.\\d+)?)`, "i")
+      new RegExp(`Week\\s+${week}\\s+vs\\s+.+?\\s+•\\s+\\d+(?:st|nd|rd|th)\\s+(\\d+(?:\\.\\d+)?)\\s+(\\d+(?:\\.\\d+)?)\\s+vs\\s+(\\d+(?:\\.\\d+)?)\\s+(\\d+(?:\\.\\d+)?)`, "i")
     );
     const detectedScore = weeklyMatchupMatch ? weeklyMatchupMatch[1] : null;
-    const detectedOpponentScore = weeklyMatchupMatch ? weeklyMatchupMatch[2] : null;
+    const detectedProjectedScore = weeklyMatchupMatch ? weeklyMatchupMatch[2] : null;
+    const detectedOpponentScore = weeklyMatchupMatch ? weeklyMatchupMatch[3] : null;
+    const detectedOpponentProjectedScore = weeklyMatchupMatch ? weeklyMatchupMatch[4] : null;
     const detectedSeasonTotal = seasonTotalMatch ? seasonTotalMatch[1] : null;
 
     const cellText = (element) => element.textContent.replace(/\s+/g, " ").trim();
@@ -188,7 +201,9 @@ async function extractTeamPageData({ page, owner, teamName, week }) {
         const span = Number(cell.colSpan || 1);
         for (let index = 0; index < span; index += 1) expandedGroups.push(cellText(cell));
       }
-      const subHeaders = subCells.map(cellText);
+      const subHeaders = subCells.flatMap((cell) =>
+        Array.from({ length: Number(cell.colSpan || 1) }, () => cellText(cell))
+      );
       const playerColumnIndex = subHeaders.findIndex((header) => playerColumnLabels.includes(header));
       if (playerColumnIndex === -1) return [];
       const columns = subHeaders.map((header, index) => {
@@ -218,7 +233,9 @@ async function extractTeamPageData({ page, owner, teamName, week }) {
         : false,
       detectedTeamName,
       detectedScore,
+      detectedProjectedScore,
       detectedOpponentScore,
+      detectedOpponentProjectedScore,
       detectedSeasonTotal,
       rosterTables,
       rosterPreview: playerRows,
@@ -260,7 +277,9 @@ async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week,
       title: pageSnapshot.title,
       detectedTeamName: pageSnapshot.detectedTeamName,
       detectedScore: pageSnapshot.detectedScore,
+      detectedProjectedScore: pageSnapshot.detectedProjectedScore,
       detectedOpponentScore: pageSnapshot.detectedOpponentScore,
+      detectedOpponentProjectedScore: pageSnapshot.detectedOpponentProjectedScore,
       detectedSeasonTotal: pageSnapshot.detectedSeasonTotal,
       ownerMatched: pageIdentity.ownerMatched,
       teamNameMatched: pageSnapshot.teamNameMatched,
@@ -296,6 +315,7 @@ async function scrapeTeamWeek({ season, leagueId, teamId, owner, teamName, week,
 
 async function main() {
   const config = loadConfig();
+  const week = resolveWeek(config);
   const storageState = resolveStorageStatePath(config);
 
   if (!fs.existsSync(storageState)) {
@@ -308,14 +328,14 @@ async function main() {
   const page = await context.newPage();
 
   for (const team of config.teams) {
-    console.log(`Scraping ${config.season} / week ${config.currentWeek} / ${team.owner} (${team.teamId})`);
+    console.log(`Scraping ${config.season} / week ${week} / ${team.owner} (${team.teamId})`);
     await scrapeTeamWeek({
       season: config.season,
       leagueId: config.leagueId,
       teamId: team.teamId,
       owner: team.owner,
       teamName: team.teamName,
-      week: config.currentWeek,
+      week,
       page,
     });
   }

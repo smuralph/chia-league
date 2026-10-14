@@ -18,6 +18,15 @@ function loadConfig() {
   return JSON.parse(fs.readFileSync(path.join(CURRENT_SEASON_DIR, "config.json"), "utf8"));
 }
 
+function resolveWeek(config) {
+  const override = process.argv.find((argument) => argument.startsWith("--week="));
+  const week = override ? Number(override.slice("--week=".length)) : Number(config.currentWeek);
+  if (!Number.isInteger(week) || week < 1 || week > 18) {
+    throw new Error(`Invalid week: ${override ?? config.currentWeek}`);
+  }
+  return week;
+}
+
 function toNumber(value) {
   if (value === undefined || value === null || value === "" || value === "-") return null;
   const number = Number(value);
@@ -27,6 +36,17 @@ function toNumber(value) {
 function extractOpponentTeamName(payload) {
   const match = (payload.rawHtmlSnippet || "").match(/Week\s+\d+\s+vs\s+(.+?)\s+•/i);
   return match ? match[1].trim() : null;
+}
+
+function extractTeamProjection(payload, week) {
+  const summaryProjection = toNumber(payload.summary?.detectedProjectedScore);
+  if (summaryProjection !== null) return summaryProjection;
+
+  const normalizedText = (payload.rawHtmlSnippet || "").replace(/\s+/g, " ").replace(/\u00a0/g, " ");
+  const match = normalizedText.match(
+    new RegExp(`Week\\s+${week}\\s+vs\\s+.+?\\s+•\\s+\\d+(?:st|nd|rd|th)\\s+\\d+(?:\\.\\d+)?\\s+(\\d+(?:\\.\\d+)?)\\s+vs\\s+\\d+(?:\\.\\d+)?\\s+\\d+(?:\\.\\d+)?`, "i")
+  );
+  return match ? toNumber(match[1]) : null;
 }
 
 function extractPlayerRows(payload) {
@@ -70,12 +90,13 @@ async function upsertOwner(client, name) {
 async function main() {
   const config = loadConfig();
   const season = Number(config.season);
-  const week = Number(config.currentWeek);
+  const week = resolveWeek(config);
   const outputDir = path.join(CURRENT_SEASON_DIR, "output", String(season), `week-${week}`);
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
+    await client.query("ALTER TABLE weekly_matchups ADD COLUMN IF NOT EXISTS projected_points NUMERIC");
     const teams = [];
     const ownerIds = new Map();
 
@@ -94,6 +115,7 @@ async function main() {
       ownerIds.set(configuredTeam.owner, ownerId);
       const teamName = payload.teamName || configuredTeam.teamName;
       const pointsScored = toNumber(payload.summary?.detectedScore);
+      const projectedPoints = extractTeamProjection(payload, week);
       const opponentTeamName = extractOpponentTeamName(payload);
 
       await client.query(
@@ -116,6 +138,7 @@ async function main() {
         ownerId,
         teamName,
         pointsScored,
+        projectedPoints,
         opponentTeamName,
         players: extractPlayerRows(payload),
       });
@@ -125,11 +148,12 @@ async function main() {
       const opponent = teams.find((candidate) => candidate.teamName === team.opponentTeamName);
       await client.query(
         `INSERT INTO weekly_matchups
-          (season, week, owner_id, team_name, points_scored,
+          (season, week, owner_id, team_name, points_scored, projected_points,
            opponent_owner_id, opponent_team_name, opponent_points)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (season, week, owner_id) DO UPDATE SET
            team_name = EXCLUDED.team_name, points_scored = EXCLUDED.points_scored,
+           projected_points = EXCLUDED.projected_points,
            opponent_owner_id = EXCLUDED.opponent_owner_id,
            opponent_team_name = EXCLUDED.opponent_team_name,
            opponent_points = EXCLUDED.opponent_points`,
@@ -139,6 +163,7 @@ async function main() {
           team.ownerId,
           team.teamName,
           team.pointsScored,
+          team.projectedPoints,
           opponent?.ownerId || null,
           team.opponentTeamName,
           opponent?.pointsScored || null,

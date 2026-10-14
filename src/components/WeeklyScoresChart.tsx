@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  ComposedChart,
   LineChart,
   Line,
   BarChart,
@@ -53,6 +54,9 @@ function ProjectionTooltip({ active, payload, label }: any) {
         {beat ? "+" : ""}
         {row.diff.toFixed(1)} vs. projection
       </div>
+      <div style={{ color: "var(--series-1)", fontWeight: 600 }}>
+        Cumulative net: {row.cumulativeNet > 0 ? "+" : ""}{row.cumulativeNet.toFixed(1)}
+      </div>
     </div>
   );
 }
@@ -91,10 +95,16 @@ export function WeeklyScoresChart({
   }, [scores, weeks, owners]);
 
   const projectionRows = useMemo(
-    () =>
-      projections
+    () => {
+      let cumulativeNet = 0;
+      return projections
         .filter((p) => p.owner === highlighted)
-        .sort((a, b) => a.week - b.week),
+        .sort((a, b) => a.week - b.week)
+        .map((projection) => {
+          if (projection.diff !== null) cumulativeNet += projection.diff;
+          return { ...projection, cumulativeNet: Math.round(cumulativeNet * 100) / 100 };
+        });
+    },
     [projections, highlighted]
   );
   const hasProjectionData = projectionRows.some((r) => r.diff !== null);
@@ -209,7 +219,7 @@ export function WeeklyScoresChart({
       {view === "projection" &&
         (hasProjectionData ? (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={projectionRows} margin={{ top: 20, right: 16, bottom: 0, left: -8 }}>
+            <ComposedChart data={projectionRows} margin={{ top: 20, right: 16, bottom: 0, left: -8 }}>
               <CartesianGrid stroke="var(--gridline)" vertical={false} />
               <XAxis
                 dataKey="week"
@@ -226,15 +236,37 @@ export function WeeklyScoresChart({
                 width={48}
                 label={{ value: "Pts vs. proj.", angle: -90, position: "insideLeft", fill: "var(--text-muted)", fontSize: 12 }}
               />
+              <YAxis
+                yAxisId="cumulative"
+                orientation="right"
+                stroke="var(--baseline)"
+                tick={{ fill: "var(--text-muted)", fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+                width={48}
+                label={{ value: "Cumulative net", angle: 90, position: "insideRight", fill: "var(--text-muted)", fontSize: 12 }}
+              />
               <ReferenceLine y={0} stroke="var(--baseline)" />
               <Tooltip content={<ProjectionTooltip />} />
-              <Bar dataKey="diff" isAnimationActive={false} radius={[3, 3, 3, 3]}>
+              <Legend wrapperStyle={{ fontSize: 13, color: "var(--text-secondary)" }} />
+              <Bar dataKey="diff" name="Weekly net" isAnimationActive={false} radius={[3, 3, 3, 3]}>
                 {projectionRows.map((row, i) => (
                   <Cell key={i} fill={row.diff !== null && row.diff >= 0 ? "var(--success)" : "var(--critical)"} />
                 ))}
                 <LabelList dataKey="diff" content={DiffBarLabel} />
               </Bar>
-            </BarChart>
+              <Line
+                type="monotone"
+                yAxisId="cumulative"
+                dataKey="cumulativeNet"
+                name="Cumulative net"
+                stroke="var(--series-1)"
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: "var(--series-1)" }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <div
