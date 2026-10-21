@@ -327,6 +327,11 @@ async function main() {
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
+  // Yahoo redirects the first navigation of a session through its account host
+  // before bouncing back; the first team's page would be scraped as "Yahoo account"
+  // with no roster data. A warm-up visit absorbs that redirect before real scraping.
+  await page.goto(`https://football.fantasysports.yahoo.com/f1/${config.leagueId}`, { waitUntil: "domcontentloaded" });
+
   for (const team of config.teams) {
     console.log(`Scraping ${config.season} / week ${week} / ${team.owner} (${team.teamId})`);
     await scrapeTeamWeek({
